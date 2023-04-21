@@ -6,32 +6,35 @@
         xmlns:local="clr-namespace:GeometryDesignerDemo"
         mc:Ignorable="d"
         Title="MainWindow" ContentRendered="OnUiReady" Width="1200">
-    <Window.Resources>
-        <MatrixTransform x:Key = "InitialMatrixTransform">
-            <MatrixTransform.Matrix>
-                <Matrix OffsetX = "200" OffsetY = "200"/>
-            </MatrixTransform.Matrix>
-        </MatrixTransform>
-    </Window.Resources>
+    
     <StackPanel Orientation="Horizontal" ClipToBounds="True" VerticalAlignment="Stretch">
         <Grid Width="200" VerticalAlignment="Stretch" Background="LightGray" Name="LeftPanel">
             <Grid.RowDefinitions>
-                <RowDefinition Height="100" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="80" />
             </Grid.RowDefinitions>
             <Border Grid.Row="0" BorderThickness="2" BorderBrush="Black" HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch" Background="LightYellow">
                 <Canvas>
-                    <Label Canvas.Left="0" Canvas.Top="5" FontStyle="Italic" FontWeight="Bold" FontSize="14">Select a tool</Label>
-                    <Grid VerticalAlignment="Stretch" Canvas.Top="50"
-                              Canvas.Left="12" MaxWidth="80" Width="80">
-                        <Button Click="OnInsertGeometry">Line</Button>
-                        <Button Margin="92,0,-92,0" Click="OnInsertGeometry">Ellipse</Button>
+                    <Label Canvas.Left="0" Canvas.Top="5" FontStyle="Italic" FontWeight="Bold" FontSize="14">Select a function</Label>
+                    <Grid Height="500" Width="150" VerticalAlignment="Stretch" Canvas.Top="50"
+                              Canvas.Left="12">
+                        <Grid.RowDefinitions >
+                            <RowDefinition Height="50"/>
+                            <RowDefinition Height="50" />
+                            <RowDefinition Height="50" />
+                            <RowDefinition Height="50" />
+                            <RowDefinition Height="50" />
+                        </Grid.RowDefinitions>
+                        <Button Margin="5" Grid.Row="0" Click="OnInsertGeometry">Ellipse</Button>
+                        <Button Margin="5" Grid.Row="1" Click="OnInsertGeometry">Distance</Button>
+                        <Button Margin="5" Grid.Row="2" Click="OnInsertGeometry">Select</Button>
+                        <Button Margin="5" Grid.Row="3" Click="OnInsertGeometry">Delete</Button>
+                        <Button Margin="5" Grid.Row="4" Click="OnInsertGeometry">Done</Button>
                     </Grid>
                 </Canvas>
             </Border>
-            <Border Grid.Row="2" BorderThickness="2" BorderBrush="Black" Background="LightYellow"
+            <Border Grid.Row="1" BorderThickness="2" BorderBrush="Black" Background="LightYellow"
                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                 <StackPanel Orientation="Vertical" VerticalAlignment="Stretch">
                     <StackPanel Orientation="Horizontal">
@@ -44,43 +47,24 @@
                 </StackPanel>
             </Border>
         </Grid>
-        
+
+
         <Canvas Width="1000" VerticalAlignment="Stretch" Name="DesignerPane" ClipToBounds="True">
             <Canvas Width="1000" Height="1000" Canvas.Left="0" Canvas.Top="0">
                 <Canvas.Background>
-                    <VisualBrush x:Name="LogoBrush"
-                                 TileMode="Tile" Viewport="0,0,0.3,0.1">
+                    <VisualBrush x:Name="LogoBrush">
                         <VisualBrush.Visual>
                             <Border Background="Transparent">
                             </Border>
                         </VisualBrush.Visual>
                     </VisualBrush>
                 </Canvas.Background>
-
                 <Rectangle
                     Width="{Binding ElementName=DrawingPane, Path=ActualWidth}"
                     Height="{Binding ElementName=DrawingPane, Path=ActualHeight}">
-                    <Rectangle.Fill>
-                        <DrawingBrush x:Name="GridBrush"
-                                      Viewport="0,0,10,10" ViewportUnits="Absolute" TileMode="Tile"
-                                      Opacity="0">
-                            <DrawingBrush.Drawing>
-                                <DrawingGroup>
-                                    <GeometryDrawing Brush="#CCCCFF">
-                                        <GeometryDrawing.Geometry>
-                                            <RectangleGeometry Rect="0,0 10,1" />
-                                        </GeometryDrawing.Geometry>
-                                    </GeometryDrawing>
-                                    <GeometryDrawing Brush="#CCCCFF">
-                                        <GeometryDrawing.Geometry>
-                                            <RectangleGeometry Rect="0,0 1,10" />
-                                        </GeometryDrawing.Geometry>
-                                    </GeometryDrawing>
-                                </DrawingGroup>
-                            </DrawingBrush.Drawing>
-                        </DrawingBrush>
-                    </Rectangle.Fill>
                 </Rectangle>
+
+                <MediaElement Source="C:\Users\Daniel\Dev\WPF-Samples\Sample Applications\GeometryDesignerDemo\Assets\ultrasound.png" Width="1000"/>
 
                 <Canvas Width="1000" Height="1000" Canvas.Left="0" Canvas.Top="0" Name="DrawingPane" />
 
@@ -95,13 +79,6 @@
                                     Duration="0:0:5"
                                     From="1"
                                     To="0" />
-                                <DoubleAnimation
-                                    Storyboard.TargetName="GridBrush"
-                                    Storyboard.TargetProperty="Opacity"
-                                    BeginTime="0:0:5"
-                                    Duration="0:0:5"
-                                    From="0"
-                                    To="1" />
                             </Storyboard>
                         </BeginStoryboard>
                     </EventTrigger>

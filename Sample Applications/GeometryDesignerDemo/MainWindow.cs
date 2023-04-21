@@ -12,6 +12,7 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 
 namespace GeometryDesignerDemo
 {
@@ -46,6 +47,7 @@ namespace GeometryDesignerDemo
 
         private void OnCaptureCanvas(object sender, RoutedEventArgs e)
         {
+            action_Done();
             RenderTargetBitmap rtb = new RenderTargetBitmap((int)DesignerPane.RenderSize.Width,
                 (int)DesignerPane.RenderSize.Height, 96d, 96d, PixelFormats.Default);
             rtb.Render(DesignerPane);
@@ -203,7 +205,7 @@ namespace GeometryDesignerDemo
 
         private void path_MouseEnter(object sender, MouseEventArgs e)
         {
-            var pathId = ((Path) sender).Name;
+            /*var pathId = ((Path) sender).Name;
 
             //Search and set visibility on all of the related control points
             foreach (var o in DesignerPane.Children)
@@ -216,44 +218,122 @@ namespace GeometryDesignerDemo
                         ? Visibility.Visible
                         : Visibility.Hidden;
                 }
+            }*/
+        }
+
+        private void path_lockToSelected(UIElement element)
+        {
+            var pathId = ((Path)element).Name;
+            //Search and set visibility on all of the related control points
+            foreach(var o in DesignerPane.Children)
+            {
+                //Search for the control point that contains the element's ID
+                //e.g Line1_StartPoint for Line1 element
+                if (o is Ellipse)
+                {
+                    ((Ellipse)o).Visibility = ((Ellipse)o).Name.Contains(pathId)
+                        ? Visibility.Visible
+                        : Visibility.Hidden;
+                }
             }
         }
 
+        private void action_Done()
+        {
+            foreach (var o in DesignerPane.Children)
+            {
+                //Search for the control point that contains the element's ID
+                //e.g Line1_StartPoint for Line1 element
+                if (o is Ellipse)
+                {
+                    ((Ellipse)o).Visibility = Visibility.Hidden;
+                }
+            }
+        }
+
+        private void action_Delete(UIElement element)
+        {
+            var pathId = ((Path)element).Name;
+            //Search and set visibility on all of the related control points
+            for(int i = DesignerPane.Children.Count - 1; i >= 0; i--) {
+                var o = DesignerPane.Children[i];
+                if (o is Ellipse && ((Ellipse)o).Name.Contains(pathId))
+                {
+                    DesignerPane.Children.RemoveAt(i);
+                }
+            }
+        }
 
         private void OnInsertGeometry(object sender, RoutedEventArgs e)
         {
             try
             {
-                    var path = new Path
+                var path = new Path
                     {
-                        Stroke = Brushes.Black,
-                        StrokeThickness = 2
+                        Stroke = Brushes.White,
+                        StrokeThickness = 4
                     };
-                    var name = ((Button)sender).Content.ToString();
+                var name = ((Button)sender).Content.ToString();
+                var itemCount = _lineCount + _elliipseCount;
+                GeometryBase gb;
+                switch (name)
+                {
+                    case "Select":
+                        if (itemCount == 0) { return; }
+                        if(_selectedIndex != null) ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White;
+                        
+                        _selectedIndex = itemCount == 1 ? 0 : (_selectedIndex + 1) % itemCount;
+                        ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.Green;
 
-                    var gb = GeometryFactory(name);
+                        path_lockToSelected(DrawingPane.Children[(int)_selectedIndex]);
 
+                        break;
+                    case "Done":
+                        ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White;
+                        action_Done();
+                        break;
+                    case "Delete":
+                        if (itemCount == 0 || _selectedIndex == null) { return; }
+                        
+                        var element = (Path)DrawingPane.Children[(int)_selectedIndex];
+                        if(element.RenderedGeometry is EllipseGeometry) { 
+                            _elliipseCount--;
+                        } else
+                        {
+                            _lineCount--;
+                        }
+                        action_Delete(element);
 
-                    switch (gb.GeometryType)
-                    {
-                        case "Line":
-                            path.Name = "Line" + _lineCount;
-                            AddControlPoints(gb.ControlPoints, "Line");
-                            _lineCount++;
-                            break;
-                        case "Ellipse":
-                            path.Name = "Ellipse" + _elliipseCount;
-                            AddControlPoints(gb.ControlPoints, "Ellipse");
-                            _elliipseCount++;
-                            break;
-                        default:
-                            throw new ApplicationException("Error:  Incorrect Geometry type");
-                    }
+                        DrawingPane.Children.Remove(element);
+                        _selectedIndex = null;
 
-                    path.Data = gb.CreateGeometry();
-                    path.MouseEnter += path_MouseEnter;
-                    _currentElement = path;
-                    DrawingPane.Children.Add(path);
+                        //action_Done();
+                        break;
+                    case "Distance":
+                        if (itemCount >= 3) { return; }
+                        path.Name = "Line" + _lineCount;
+                        gb = GeometryFactory("Line");
+                        AddControlPoints(gb.ControlPoints, "Line");
+                        _lineCount++;
+                        path.Data = gb.CreateGeometry();
+                        path.MouseEnter += path_MouseEnter;
+                        _currentElement = path;
+                        DrawingPane.Children.Add(path); 
+                        break;
+                    case "Ellipse":
+                        if (itemCount >= 3) { return; }
+                        path.Name = "Ellipse" + _elliipseCount;
+                        gb = GeometryFactory(name);
+                        AddControlPoints(gb.ControlPoints, "Ellipse");
+                        _elliipseCount++;
+                        path.Data = gb.CreateGeometry();
+                        path.MouseEnter += path_MouseEnter;
+                        _currentElement = path;
+                        DrawingPane.Children.Add(path);
+                        break;
+                    default:
+                        throw new ApplicationException("Error:  Incorrect Geometry type");
+                }
             }
             catch (ApplicationException argExcept)
             {
@@ -494,7 +574,7 @@ namespace GeometryDesignerDemo
                     {
                         if (o is Ellipse && ((Ellipse) o).Name.Contains(s[0]) && ((Ellipse) o).Name != s[0])
                         {
-                            Canvas.SetLeft(((Ellipse) o), Canvas.GetLeft(((Ellipse) o)) + diffX);
+                            Canvas.SetLeft((Ellipse)o, Canvas.GetLeft(((Ellipse)o)) + diffX);
                             Canvas.SetTop(((Ellipse) o), Canvas.GetTop(((Ellipse) o)) + diffY);
                         }
                     }
@@ -646,6 +726,20 @@ namespace GeometryDesignerDemo
         private static readonly double ControlPointMarkerWidth = 20;
         private static readonly double ControlPointMarkerHeight = 20;
 
+        private void deleteElement(UIElement element)
+        {
+            /*
+             {
+                                e.Name = "Line" + _lineCount + "_StartPoint";
+                            }
+                            else
+                            {
+                                e.Name = "Line" + _lineCount + "_EndPoint";
+                            }*/
+
+
+        }
+
         private void AddLineGeometryControlPoints(ArrayList controlPoints)
         {
             if (controlPoints.Count != 2)
@@ -767,51 +861,13 @@ namespace GeometryDesignerDemo
 
         #region Data members
 
-        private int _lineCount = 1;
-        private int _elliipseCount = 1;
+        private int _lineCount = 0;
+        private int _elliipseCount = 0;
+        private string _selectedMeasure;
+        private int? _selectedIndex = 0;
         private bool _isShow;
         private Path _currentElement;
 
         #endregion
-
-        void Window_ManipulationStarting(object sender, ManipulationStartingEventArgs e)
-        {
-            e.ManipulationContainer = this;
-            e.Handled = true;
-        }
-
-        void Window_ManipulationDelta(object sender, ManipulationDeltaEventArgs e)
-        {
-            Rectangle rectToMove = e.OriginalSource as Rectangle;
-            Matrix rectsMatrix = ((MatrixTransform)rectToMove.RenderTransform).Matrix;
-
-            rectsMatrix.RotateAt(e.DeltaManipulation.Rotation, e.ManipulationOrigin.X, e.ManipulationOrigin.Y);
-
-            rectsMatrix.ScaleAt(e.DeltaManipulation.Scale.X, e.DeltaManipulation.Scale.X,
-               e.ManipulationOrigin.X, e.ManipulationOrigin.Y);
-
-            rectsMatrix.Translate(e.DeltaManipulation.Translation.X,
-               e.DeltaManipulation.Translation.Y);
-
-            rectToMove.RenderTransform = new MatrixTransform(rectsMatrix);
-            Rect containingRect = new Rect(((FrameworkElement)e.ManipulationContainer).RenderSize);
-
-            Rect shapeBounds = rectToMove.RenderTransform.TransformBounds(new Rect(rectToMove.RenderSize));
-
-            if (e.IsInertial && !containingRect.Contains(shapeBounds))
-            {
-                e.Complete();
-            }
-
-            e.Handled = true;
-        }
-
-        void Window_InertiaStarting(object sender, ManipulationInertiaStartingEventArgs e)
-        {
-            e.TranslationBehavior.DesiredDeceleration = 10.0 * 96.0 / (1000.0 * 1000.0);
-            e.ExpansionBehavior.DesiredDeceleration = 0.1 * 96 / (1000.0 * 1000.0);
-            e.RotationBehavior.DesiredDeceleration = 720 / (1000.0 * 1000.0);
-            e.Handled = true;
-        }
     }
 }

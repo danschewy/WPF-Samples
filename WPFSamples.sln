@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28927.53
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample Applications", "Sample Applications", "{122369C4-906B-4398-9F7D-DA33916262CF}"
 EndProject
@@ -208,6 +208,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HostingWpfUserControl", "HostingWpfUserControl", "{2D47BFCD-46E2-462A-AF89-E2B0B054928E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assets", "Assets", "{A4E98262-C1A0-4765-831C-11846B7E1AF5}"
+	ProjectSection(SolutionItems) = preProject
+		Assets\New Bitmap image.bmp = Assets\New Bitmap image.bmp
+		Assets\ultrasound.png = Assets\ultrasound.png
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{455CE1DE-2222-44AC-B93B-6A40A99A3E3D}"
 EndProject
