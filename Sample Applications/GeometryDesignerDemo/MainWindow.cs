@@ -5,13 +5,16 @@ using System;
 using System.Collections;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Shell;
 using System.Xml.Linq;
 
 namespace GeometryDesignerDemo
@@ -48,6 +51,8 @@ namespace GeometryDesignerDemo
         private void OnCaptureCanvas(object sender, RoutedEventArgs e)
         {
             action_Done();
+            if (_selectedIndex != null) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White; _selectedIndex = null; }
+
             RenderTargetBitmap rtb = new RenderTargetBitmap((int)DesignerPane.RenderSize.Width,
                 (int)DesignerPane.RenderSize.Height, 96d, 96d, PixelFormats.Default);
             rtb.Render(DesignerPane);
@@ -131,8 +136,8 @@ namespace GeometryDesignerDemo
 
             public override void Parse()
             {
-                _startPoint = new Point(300, 300);
-                _endPoint = new Point(300, 200);
+                _startPoint = new Point(300 + (25 * _lineCount), 300);
+                _endPoint = new Point(300 + (25 * _lineCount), 200);
                 ControlPoints.Add(_startPoint);
                 ControlPoints.Add(_endPoint);
             }
@@ -162,7 +167,7 @@ namespace GeometryDesignerDemo
 
             public override void Parse()
             {
-                _center = new Point(300.0, 300.0);
+                _center = new Point(300.0 + (25 * _elliipseCount), 300.0);
                 _radiusx = 100;
                 _radiusy = 50;
 
@@ -280,26 +285,38 @@ namespace GeometryDesignerDemo
                 {
                     case "Select":
                         if (itemCount == 0) { return; }
-                        if(_selectedIndex != null) ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White;
-                        
-                        _selectedIndex = itemCount == 1 ? 0 : (_selectedIndex + 1) % itemCount;
+                        if (_selectedIndex != null) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White; };
+                        if(itemCount == 1 || _selectedIndex == null)
+                        {
+                            _selectedIndex = 0;
+
+                        }
+                        else
+                        {
+                            _selectedIndex = (_selectedIndex + 1) % itemCount;
+                        }
+
                         ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.Green;
 
                         path_lockToSelected(DrawingPane.Children[(int)_selectedIndex]);
 
                         break;
                     case "Done":
+                        if (_selectedIndex == null) { return; };
+
                         ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White;
+
                         action_Done();
+                        _selectedIndex = null;
                         break;
                     case "Delete":
                         if (itemCount == 0 || _selectedIndex == null) { return; }
                         
                         var element = (Path)DrawingPane.Children[(int)_selectedIndex];
-                        if(element.RenderedGeometry is EllipseGeometry) { 
+                        if(element.Name.StartsWith("Ellipse")) { 
                             _elliipseCount--;
                         } else
-                        {
+                        { // TODO
                             _lineCount--;
                         }
                         action_Delete(element);
@@ -307,29 +324,42 @@ namespace GeometryDesignerDemo
                         DrawingPane.Children.Remove(element);
                         _selectedIndex = null;
 
-                        //action_Done();
+                        action_Done();
                         break;
                     case "Distance":
                         if (itemCount >= 3) { return; }
                         path.Name = "Line" + _lineCount;
                         gb = GeometryFactory("Line");
                         AddControlPoints(gb.ControlPoints, "Line");
-                        _lineCount++;
                         path.Data = gb.CreateGeometry();
-                        path.MouseEnter += path_MouseEnter;
+
                         _currentElement = path;
-                        DrawingPane.Children.Add(path); 
+
+                        _lineCount++;
+
+                        if (_selectedIndex != null) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White; };
+                        _selectedIndex = DrawingPane.Children.Add(path);
+                        path_lockToSelected(DrawingPane.Children[(int)_selectedIndex]);
+                        ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.Green;
+
                         break;
                     case "Ellipse":
                         if (itemCount >= 3) { return; }
+
                         path.Name = "Ellipse" + _elliipseCount;
+
                         gb = GeometryFactory(name);
                         AddControlPoints(gb.ControlPoints, "Ellipse");
-                        _elliipseCount++;
+
                         path.Data = gb.CreateGeometry();
-                        path.MouseEnter += path_MouseEnter;
                         _currentElement = path;
-                        DrawingPane.Children.Add(path);
+
+                        _elliipseCount++;
+                        if (_selectedIndex != null ) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White;  };
+                        _selectedIndex = DrawingPane.Children.Add(path);
+                        path_lockToSelected(DrawingPane.Children[(int)_selectedIndex]);
+                        ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.Green;
+
                         break;
                     default:
                         throw new ApplicationException("Error:  Incorrect Geometry type");
@@ -352,12 +382,76 @@ namespace GeometryDesignerDemo
         private Point _movingPreviousLocation;
 
 
+        private Point getJumpPoint(Point center, Point point2, double distance)
+        {
+            // Define the coordinates of points 1 and 2
+            double x1 = center.X;
+            double y1 = center.Y;
+            double x2 = point2.X;
+            double y2 = point2.Y;
+
+            // Calculate the slope of the line passing through points 1 and 2
+            double dx = x2 - x1;
+            double dy = y2 - y1;
+
+            if(dx + dy == 0)
+            {
+                return center;
+            }
+
+            // Check if the line is vertical
+            if (dx == 0)
+            {
+                // The line is vertical, so we move up or down along the y-axis
+                double new_x = x2;
+                double new_y = y2 + Math.Sign(dy) * distance;
+                Console.WriteLine("New point: (" + new_x + ", " + new_y + ")");
+                return new Point(new_x, new_y);
+            }
+            else
+            {
+                // Calculate the angle of the line with respect to the x-axis
+                double angle = Math.Atan2(dy, dx);
+
+                // Calculate the displacement in the x and y directions
+                double displacement_dx = distance * Math.Cos(angle);
+                double displacement_dy = distance * Math.Sin(angle);
+
+                // Add the displacement vector to the coordinates of point 2 to get the coordinates of the new point
+                double new_x = x2 + displacement_dx;
+                double new_y = y2 + displacement_dy;
+                Console.WriteLine("New point: (" + new_x + ", " + new_y + ")");
+                return new Point(new_x, new_y);
+        }
+    }
+
         private void Ellipse_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var el = (Ellipse) sender;
+            var eg = new Point(Canvas.GetLeft(el), Canvas.GetTop(el));
             el.Cursor = Cursors.Hand;
+            var s = el.Name.Split('_');
+            // jump for visibility
+            if (!_isMoving)
+            {
+                Point movingEndLocation;
+                movingEndLocation = e.GetPosition(DrawingPane);
+                var eCenter =
+                            LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center") as Ellipse;
+
+                var egC = new Point(Canvas.GetLeft(eCenter), Canvas.GetTop(eCenter));
+                var jumpPoint = getJumpPoint(egC, eg, 50);
+
+                /* Canvas.SetLeft(el, movingEndLocation.X + 10); // todo: jump in the direction away from center
+                 Canvas.SetTop(el, movingEndLocation.Y + 10);*/
+                Canvas.SetLeft(el, jumpPoint.X); // todo: jump in the direction away from center
+                Canvas.SetTop(el, jumpPoint.Y);
+
+                //dateGeometries(jumpPoint, el.Name);
+            }
             _isMoving = true;
-            _movingPreviousLocation = e.GetPosition(DrawingPane);
+
+            // _movingPreviousLocation = e.GetPosition(DrawingPane);
         }
 
         private void Ellipse_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -375,7 +469,6 @@ namespace GeometryDesignerDemo
             if (_isMoving)
             {
                 movingEndLocation = e.GetPosition(DrawingPane);
-
 
                 Canvas.SetLeft(el, movingEndLocation.X - el.Width/2);
                 Canvas.SetTop(el, movingEndLocation.Y - el.Height/2);
@@ -558,6 +651,8 @@ namespace GeometryDesignerDemo
             radians = Math.Atan2(diffY, diffX);
             angle = radians*(180/Math.PI);
 
+            
+
             switch (controlPointType)
             {
                 case "Center":
@@ -592,9 +687,13 @@ namespace GeometryDesignerDemo
                     p.Data = eg;
 
                     //Update the TopRight control point for this EllipseGeometry
-                    var eTopRight = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
-                    Canvas.SetLeft(eTopRight, (eg.Center.X - diffX) - eTopRight.Width/2);
-                    Canvas.SetTop(eTopRight, (eg.Center.Y - diffY) - eTopRight.Height/2);
+                    var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
+                    Canvas.SetLeft(eTopRight, (eg.Center.X - diffX) - eTopRight.Width / 2);
+                    Canvas.SetTop(eTopRight, (eg.Center.Y - diffY) - eTopRight.Height / 2);
+
+                   /* var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
+                    Canvas.SetLeft(eTopRight, (eg.Center.X - diffY * eg.RadiusY / v1.Length) - eTopRight.Width / 2);
+                    Canvas.SetTop(eTopRight, eg.Center.Y + diffX * eg.RadiusY / v1.Length - eTopRight.Height / 2);*/
 
                     var eTopMiddle = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
                     Canvas.SetLeft(eTopMiddle, (eg.Center.X - diffY*eg.RadiusY/v1.Length) - eTopMiddle.Width/2);
@@ -605,6 +704,13 @@ namespace GeometryDesignerDemo
                     Canvas.SetLeft(eBottomMiddle, (eg.Center.X + diffY*eg.RadiusY/v1.Length) - eBottomMiddle.Width/2);
                     Canvas.SetTop(eBottomMiddle, (eg.Center.Y - diffX*eg.RadiusY/v1.Length) - eBottomMiddle.Height/2);
 
+                   /* var eCenter =
+                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
+                    Canvas.SetLeft(eCenter, (eg.Center.X + diffX) - eCenter.Width / 2);
+                    Canvas.SetTop(eCenter, (eg.Center.Y + diffY) - eCenter.Height / 2);
+                    eg.Center = new Point((eg.Center.X + diffX) - eCenter.Width / 2, (eg.Center.Y + diffY) - eCenter.Height / 2);
+                    updateAll();
+*/
                     break;
                 case "TopMiddle":
                     var v1TopMiddle = new Vector(diffX, diffY);
@@ -861,10 +967,10 @@ namespace GeometryDesignerDemo
 
         #region Data members
 
-        private int _lineCount = 0;
-        private int _elliipseCount = 0;
+        private static int _lineCount = 0;
+        private static int _elliipseCount = 0;
         private string _selectedMeasure;
-        private int? _selectedIndex = 0;
+        private static int? _selectedIndex;
         private bool _isShow;
         private Path _currentElement;
 
