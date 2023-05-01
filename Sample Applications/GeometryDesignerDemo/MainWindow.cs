@@ -400,6 +400,14 @@ namespace GeometryDesignerDemo
                 double new_y = y2;
                 return new Point(new_x, new_y);
             }
+            else if(dy == 0)
+            {
+                // The line is horizontal, so the perpendicular line is vertical
+                // Move RADIUS units to the right (above) or left (below) of point 2
+                double new_x = x2;
+                double new_y = y2 + (isAbove ? RADIUS : -RADIUS);
+                return new Point(new_x, new_y);
+            }
             else
             {
                 // Calculate the slope of the line perpendicular to the line passing through points 1 and 2
@@ -690,8 +698,20 @@ namespace GeometryDesignerDemo
             radians = Math.Atan2(diffY, diffX);
             angle = radians*(180/Math.PI);
 
-            
+            var eCenter =
+                (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
+            var eTopMiddle = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
+            var eBottomMiddle =
+                (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_BottomMiddle");
+            var eTopLeft = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopLeft");
+            var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
 
+            var leftPoint = new Point(Canvas.GetLeft(eTopLeft) + eTopLeft.Width / 2, Canvas.GetTop(eTopLeft) + eTopLeft.Height / 2);
+            var rightPoint = new Point(Canvas.GetLeft(eTopRight) + eTopRight.Width / 2, Canvas.GetTop(eTopRight) + eTopRight.Height / 2);
+            var topPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
+            var bottomPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
+            var w = eCenter.Width / 2;
+            var h = eCenter.Height / 2;
             switch (controlPointType)
             {
                 case "Center":
@@ -717,44 +737,44 @@ namespace GeometryDesignerDemo
                     break;
 
                 case "TopLeft":
-                    var v0 = new Vector(-eg.RadiusX, 0);
-                    var v1 = new Vector(diffX, diffY);
+                    var newCenter = new Point(((rightPoint.X + movingEndLocation.X) / 2), (rightPoint.Y + movingEndLocation.Y) / 2);
+                    
+                    var newTop = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY, true);
+                    var newBottom = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY,  false);
 
-                    var rtTopLeft = new RotateTransform(angle + 180, eg.Center.X, eg.Center.Y);
-                    eg.Transform = rtTopLeft;
-                    eg.RadiusX = v1.Length;
+                    var radiusX = Math.Sqrt(Math.Pow((movingEndLocation.X - rightPoint.X), 2) + Math.Pow((movingEndLocation.Y - rightPoint.Y),2)) / 2;
+                    var radiusY = Math.Sqrt(Math.Pow((newTop.X - newBottom.X), 2) + Math.Pow((newTop.Y - newBottom.Y),2)) / 2;
+
+                    // Calculate the differences in the x and y coordinates
+                    double dx = movingEndLocation.X - rightPoint.X;
+                    double dy = movingEndLocation.Y - rightPoint.Y;
+
+                    // Calculate the angle in radians
+                    double angleRadians = Math.Atan2(dy, dx);
+
+                    // Convert the angle from radians to degrees
+                    double angleDegrees = angleRadians * (180.0 / Math.PI);
+
+                    var transforms = new TransformGroup();
+                    var rtTopLeft = new RotateTransform(angleDegrees, newCenter.X, newCenter.Y);
+
+                    transforms.Children.Add(rtTopLeft); 
+                    eg.Transform = transforms;
+                    eg.Center = newCenter;
+                    eg.RadiusX = radiusX;
                     p.Data = eg;
 
-                    var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
-
-                    var rightPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
-                    var topPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
-                    var bottomPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
-                    var radius = Math.Sqrt(Math.Pow((topPoint.X - bottomPoint.X), 2) + Math.Pow((topPoint.Y - bottomPoint.Y),2)) / 2;
-
-
-                    var eCenter =
-                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
-                    
-                    var eTopMiddle = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
-
-                    var eBottomMiddle =
-                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_BottomMiddle");
-
-                    var newCenter = new Point((rightPoint.X + movingEndLocation.X) / 2, (rightPoint.Y + movingEndLocation.Y) / 2);
                     //set center
-                    Canvas.SetLeft(eCenter, newCenter.X);
-                    Canvas.SetTop(eCenter, newCenter.Y);
-
-                    var newTop = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY, true);
-                    var newBottom = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY, false);
+                    Canvas.SetLeft(eCenter, newCenter.X - w);
+                    Canvas.SetTop(eCenter, newCenter.Y - h);
+                    
                     //set top
-                    Canvas.SetLeft(eTopMiddle, newTop.X);
-                    Canvas.SetTop(eTopMiddle, newTop.Y);
+                    Canvas.SetLeft(eTopMiddle, newTop.X - w);
+                    Canvas.SetTop(eTopMiddle, newTop.Y - h);
 
                     //set bottom
-                    Canvas.SetLeft(eBottomMiddle, newBottom.X);
-                    Canvas.SetTop(eBottomMiddle, newBottom.Y);
+                    Canvas.SetLeft(eBottomMiddle, newBottom.X - w);
+                    Canvas.SetTop(eBottomMiddle, newBottom.Y - h);
 
                     break;
                 case "TopMiddle":
@@ -779,30 +799,48 @@ namespace GeometryDesignerDemo
                     break;
 
                 case "TopRight":
-                    var v1TopRight = new Vector(diffX, diffY);
-                    var rtTopRight = new RotateTransform(angle, eg.Center.X, eg.Center.Y);
-                    eg.Transform = rtTopRight;
-                    eg.RadiusX = v1TopRight.Length;
+                    var newCenter1 = new Point(((leftPoint.X + movingEndLocation.X) / 2), (leftPoint.Y + movingEndLocation.Y) / 2);
+
+                    var newTop1 = GetPerpendicularPoint(movingEndLocation, newCenter1, eg.RadiusY, true);
+                    var newBottom1 = GetPerpendicularPoint(movingEndLocation, newCenter1, eg.RadiusY, false);
+
+                    var radiusX1 = Math.Sqrt(Math.Pow((movingEndLocation.X - leftPoint.X), 2) + Math.Pow((movingEndLocation.Y - leftPoint.Y), 2)) / 2;
+                    var radiusY1 = Math.Sqrt(Math.Pow((newTop1.X - newBottom1.X), 2) + Math.Pow((newTop1.Y - newBottom1.Y), 2)) / 2;
+
+                    // Calculate the differences in the x and y coordinates
+                    double dx1 = movingEndLocation.X - leftPoint.X;
+                    double dy1 = movingEndLocation.Y - leftPoint.Y;
+
+                    // Calculate the angle in radians
+                    double angleRadians1 = Math.Atan2(dy1, dx1);
+
+                    // Convert the angle from radians to degrees
+                    double angleDegrees1 = angleRadians1 * (180.0 / Math.PI);
+
+                    var transforms1 = new TransformGroup();
+                    var rtTopRight = new RotateTransform(angleDegrees1, newCenter1.X, newCenter1.Y);
+
+                    transforms1.Children.Add(rtTopRight);
+                    eg.Transform = transforms1;
+                    eg.Center = newCenter1;
+                    eg.RadiusX = radiusX1;
                     p.Data = eg;
 
-                    var eTopLeft3 = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopLeft");
-                    Canvas.SetLeft(eTopLeft3, (eg.Center.X - diffX) - eTopLeft3.Width/2);
-                    Canvas.SetTop(eTopLeft3, (eg.Center.Y - diffY) - eTopLeft3.Height/2);
+                    //set center
+                    Canvas.SetLeft(eCenter, newCenter1.X - w);
+                    Canvas.SetTop(eCenter, newCenter1.Y - h);
 
-                    var eTopMiddle3 = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
-                    Canvas.SetLeft(eTopMiddle3, (eg.Center.X + diffY*eg.RadiusY/v1TopRight.Length) - eTopMiddle3.Width/2);
-                    Canvas.SetTop(eTopMiddle3, (eg.Center.Y - diffX*eg.RadiusY/v1TopRight.Length) - eTopMiddle3.Height/2);
+                    //set top
+                    Canvas.SetLeft(eTopMiddle, newTop1.X - w);
+                    Canvas.SetTop(eTopMiddle, newTop1.Y - h);
 
-                    var eBottomMiddle3 =
-                        (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_BottomMiddle");
-                    Canvas.SetLeft(eBottomMiddle3,
-                        (eg.Center.X - diffY*eg.RadiusY/v1TopRight.Length) - eBottomMiddle3.Width/2);
-                    Canvas.SetTop(eBottomMiddle3,
-                        (eg.Center.Y + diffX*eg.RadiusY/v1TopRight.Length) - eBottomMiddle3.Height/2);
+                    //set bottom
+                    Canvas.SetLeft(eBottomMiddle, newBottom1.X - w);
+                    Canvas.SetTop(eBottomMiddle, newBottom1.Y - h);
+
                     break;
-
                 case "BottomMiddle":
-                    var v1BottomMiddle = new Vector(diffX, diffY);
+                    /*var v1BottomMiddle = new Vector(diffX, diffY);
                     var rtBottomMiddle = new RotateTransform(angle - 90, eg.Center.X, eg.Center.Y);
                     eg.Transform = rtBottomMiddle;
                     eg.RadiusY = v1BottomMiddle.Length;
@@ -821,6 +859,46 @@ namespace GeometryDesignerDemo
                     var eTopMiddle4 = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
                     Canvas.SetLeft(eTopMiddle4, (eg.Center.X - diffX) - eTopMiddle4.Width/2);
                     Canvas.SetTop(eTopMiddle4, (eg.Center.Y - diffY) - eTopMiddle4.Height/2);
+                    break;*/
+                    var newCenter2 = new Point(((topPoint.X + movingEndLocation.X) / 2), (topPoint.Y + movingEndLocation.Y) / 2);
+
+                    var newLeft= GetPerpendicularPoint(movingEndLocation, newCenter2, eg.RadiusX, true);
+                    var newRight = GetPerpendicularPoint(movingEndLocation, newCenter2, eg.RadiusX, false);
+
+                    var radiusY2 = Math.Sqrt(Math.Pow((movingEndLocation.X - topPoint.X), 2) + Math.Pow((movingEndLocation.Y - topPoint.Y), 2)) / 2;
+                    var radiusX2 = Math.Sqrt(Math.Pow((newLeft.X - newRight.X), 2) + Math.Pow((newLeft.Y - newRight.Y), 2)) / 2;
+
+                    // Calculate the differences in the x and y coordinates
+                    double dx2 = movingEndLocation.X - topPoint.X;
+                    double dy2 = movingEndLocation.Y - topPoint.Y;
+
+                    // Calculate the angle in radians
+                    double angleRadians2 = Math.Atan2(dy2, dx2);
+
+                    // Convert the angle from radians to degrees
+                    double angleDegrees2 = angleRadians2* (180.0 / Math.PI);
+
+                    var transforms2 = new TransformGroup();
+                    var rtBottomMiddle = new RotateTransform(angleDegrees2, newCenter2.X, newCenter2.Y);
+
+                    transforms2.Children.Add(rtBottomMiddle);
+                    eg.Transform = transforms2;
+                    eg.Center = newCenter2;
+                    eg.RadiusY = radiusY2;
+                    p.Data = eg;
+
+                    //set center
+                    Canvas.SetLeft(eCenter, newCenter2.X - w);
+                    Canvas.SetTop(eCenter, newCenter2.Y - h);
+
+                    //set left
+                    Canvas.SetLeft(eTopMiddle, newLeft.X - w);
+                    Canvas.SetTop(eTopMiddle, newLeft.Y - h);
+
+                    //set right
+                    Canvas.SetLeft(eBottomMiddle, newRight.X - w);
+                    Canvas.SetTop(eBottomMiddle, newRight.Y - h);
+
                     break;
 
                 default:
