@@ -55,7 +55,8 @@ namespace GeometryDesignerDemo
             action_Done();
             if (_selectedIndex != null) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White; _selectedIndex = null; }
 
-            RenderTargetBitmap rtb = new RenderTargetBitmap((int)DesignerPane.RenderSize.Width,
+            DesignerPane.UpdateLayout();
+            RenderTargetBitmap rtb = new RenderTargetBitmap((int)DesignerPane.RenderSize.Width + 200,
                 (int)DesignerPane.RenderSize.Height, 96d, 96d, PixelFormats.Default);
             rtb.Render(DesignerPane);
 
@@ -233,17 +234,15 @@ namespace GeometryDesignerDemo
 
         private void path_lockToSelected(UIElement element)
         {
-            var pathId = ((Path)element).Name;
             //Search and set visibility on all of the related control points
-            foreach(var o in DesignerPane.Children)
+            foreach (var o in DesignerPane.Children)
             {
                 //Search for the control point that contains the element's ID
                 //e.g Line1_StartPoint for Line1 element
                 if (o is Ellipse)
                 {
-                    ((Ellipse)o).Visibility = ((Ellipse)o).Name.Contains(pathId)
-                        ? Visibility.Visible
-                        : Visibility.Hidden;
+                    if (!((Ellipse)o).Name.Contains('_')) { ((Ellipse)o).MouseLeftButtonDown -= Ellipse_MouseLeftButtonDown; }
+                    else { ((Ellipse)o).MouseLeftButtonDown += Ellipse_MouseLeftButtonDown; }
                 }
             }
         }
@@ -256,7 +255,7 @@ namespace GeometryDesignerDemo
                 //e.g Line1_StartPoint for Line1 element
                 if (o is Ellipse)
                 {
-                    ((Ellipse)o).Visibility = Visibility.Hidden;
+                    ((Ellipse)o).MouseLeftButtonDown -= Ellipse_MouseLeftButtonDown;
                 }
             }
         }
@@ -499,47 +498,56 @@ namespace GeometryDesignerDemo
 
         private void Ellipse_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            
             var el = (Ellipse) sender;
-            var eg = new Point(Canvas.GetLeft(el), Canvas.GetTop(el));
-            el.Cursor = Cursors.Hand;
+            _currentEl = el.Name;
             var s = el.Name.Split('_');
+            if (_selectedIndex == null || ((Path)DrawingPane.Children[(int)_selectedIndex]).Name != s[0])
+            {
+                _isMoving = false;
+                _currentEl = null;
+                return;
+            }
+            el.Cursor = Cursors.Hand;
+            var eg = new Point(Canvas.GetLeft(el), Canvas.GetTop(el));
             // jump for visibility
             if (!_isMoving)
             {
-                Point movingEndLocation;
-                movingEndLocation = e.GetPosition(DrawingPane);
                 var eCenter =
                             LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center") as Ellipse;
 
                 var egC = new Point(Canvas.GetLeft(eCenter), Canvas.GetTop(eCenter));
                 var jumpPoint = getJumpPoint(egC, eg, 50);
 
-                /* Canvas.SetLeft(el, movingEndLocation.X + 10); // todo: jump in the direction away from center
-                 Canvas.SetTop(el, movingEndLocation.Y + 10);*/
                 Canvas.SetLeft(el, jumpPoint.X); // todo: jump in the direction away from center
                 Canvas.SetTop(el, jumpPoint.Y);
 
-                //dateGeometries(jumpPoint, el.Name);
+               _isMoving = true;
             }
-            _isMoving = true;
-
-            // _movingPreviousLocation = e.GetPosition(DrawingPane);
         }
 
-        private void Ellipse_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        private void Ellipse_MouseLeftButtonUp(object sender, MouseEventArgs e)
         {
             var el = (Ellipse) sender;
             el.Cursor = Cursors.Arrow;
             _isMoving = false;
+            _currentEl = null;
         }
 
 
         private void Ellipse_MouseMove(object sender, MouseEventArgs e)
         {
             var el = (Ellipse) sender;
-            Point movingEndLocation;
+            var s = el.Name.Split('_');
+            if (_selectedIndex == null || ((Path)DrawingPane.Children[(int)_selectedIndex]).Name != s[0] || _currentEl != el.Name)
+            {
+                _isMoving = false;
+                _currentEl = null;
+                return;
+            }
             if (_isMoving)
             {
+                Point movingEndLocation;
                 movingEndLocation = e.GetPosition(DrawingPane);
 
                 Canvas.SetLeft(el, movingEndLocation.X - el.Width/2);
@@ -1024,10 +1032,10 @@ namespace GeometryDesignerDemo
             {
                 var e = new Ellipse
                 {
-                    Visibility = Visibility.Hidden,
+                    Visibility = Visibility.Visible,
                     Stroke = Brushes.Black,
                     StrokeThickness = 1,
-                    Fill = _lineCount == 0 ? Brushes.White : _lineCount == 1 ? Brushes.LightCoral : Brushes.LightGreen,
+                    Fill = _lineCount == 0 ? Brushes.White : _lineCount == 1 ? Brushes.PaleVioletRed : Brushes.Orange,
                     Opacity = 0.5,
                     Width = 3,
                     Height = 3
@@ -1054,8 +1062,8 @@ namespace GeometryDesignerDemo
 
                 e.MouseLeftButtonDown += Ellipse_MouseLeftButtonDown;
                 e.MouseLeftButtonUp += Ellipse_MouseLeftButtonUp;
+                e.MouseLeave += Ellipse_MouseLeftButtonUp;
                 e.MouseMove += Ellipse_MouseMove;
-
                 //Add the control point to the Designer Pane
                 //DesignerPane.Children.Add(e);
                 DesignerPane.Children.Insert(DesignerPane.Children.Count - 1, e);
@@ -1072,10 +1080,10 @@ namespace GeometryDesignerDemo
             {
                 var e = new Ellipse
                 {
-                    Visibility = Visibility.Hidden,
+                    Visibility = Visibility.Visible,
                     Stroke = Brushes.Black,
                     StrokeThickness = 1,
-                    Fill = _elliipseCount == 0 ? Brushes.White : _elliipseCount == 1 ? Brushes.LightCoral : Brushes.LightGreen,
+                    Fill = _elliipseCount == 0 ? Brushes.White : _elliipseCount == 1 ? Brushes.PaleVioletRed : Brushes.Orange,
                     Opacity = 0.5,
                     Width = 3,
                     Height = 3
@@ -1146,6 +1154,7 @@ namespace GeometryDesignerDemo
         private static int? _selectedIndex;
         private bool _isShow;
         private Path _currentElement;
+        private static string? _currentEl;
 
         #endregion
     }

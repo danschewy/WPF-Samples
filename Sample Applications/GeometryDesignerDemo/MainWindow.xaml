@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GeometryDesignerDemo"
         mc:Ignorable="d"
-        Title="MainWindow" ContentRendered="OnUiReady" Width="1200">
+        Title="MainWindow" ContentRendered="OnUiReady" Width="1300">
     
     <StackPanel Orientation="Horizontal" ClipToBounds="True" VerticalAlignment="Stretch">
         <Grid Width="200" VerticalAlignment="Stretch" Background="LightGray" Name="LeftPanel">
