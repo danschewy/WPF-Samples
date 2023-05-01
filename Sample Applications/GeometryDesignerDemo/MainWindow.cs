@@ -381,6 +381,47 @@ namespace GeometryDesignerDemo
         private bool _isMoving;
         private Point _movingPreviousLocation;
 
+        private static Point GetPerpendicularPoint(Point point1, Point point2, double RADIUS, bool isAbove)
+        {
+            double x1 = point1.X;
+            double y1 = point1.Y;
+            double x2 = point2.X;
+            double y2 = point2.Y;
+            // Calculate the slope of the line passing through points 1 and 2
+            double dx = x2 - x1;
+            double dy = y2 - y1;
+
+            // Check if the line is vertical
+            if (dx == 0)
+            {
+                // The line is vertical, so the perpendicular line is horizontal
+                // Move RADIUS units to the right (above) or left (below) of point 2
+                double new_x = x2 + (isAbove ? RADIUS : -RADIUS);
+                double new_y = y2;
+                return new Point(new_x, new_y);
+            }
+            else
+            {
+                // Calculate the slope of the line perpendicular to the line passing through points 1 and 2
+                double slope_perpendicular = -dx / dy;
+
+                // Calculate the displacement in the x and y directions
+                double displacement_dx = RADIUS / Math.Sqrt(1 + slope_perpendicular * slope_perpendicular);
+                double displacement_dy = slope_perpendicular * displacement_dx;
+
+                // Adjust the sign of the displacement based on the isAbove flag
+                if (!isAbove)
+                {
+                    displacement_dx = -displacement_dx;
+                    displacement_dy = -displacement_dy;
+                }
+
+                // Add the displacement vector to the coordinates of point 2 to get the coordinates of the new point
+                double new_x = x2 + displacement_dx;
+                double new_y = y2 + displacement_dy;
+                return new Point(new_x, new_y);
+            }
+        }
 
         private Point getJumpPoint(Point center, Point point2, double distance)
         {
@@ -405,7 +446,6 @@ namespace GeometryDesignerDemo
                 // The line is vertical, so we move up or down along the y-axis
                 double new_x = x2;
                 double new_y = y2 + Math.Sign(dy) * distance;
-                Console.WriteLine("New point: (" + new_x + ", " + new_y + ")");
                 return new Point(new_x, new_y);
             }
             else
@@ -420,7 +460,6 @@ namespace GeometryDesignerDemo
                 // Add the displacement vector to the coordinates of point 2 to get the coordinates of the new point
                 double new_x = x2 + displacement_dx;
                 double new_y = y2 + displacement_dy;
-                Console.WriteLine("New point: (" + new_x + ", " + new_y + ")");
                 return new Point(new_x, new_y);
         }
     }
@@ -686,31 +725,37 @@ namespace GeometryDesignerDemo
                     eg.RadiusX = v1.Length;
                     p.Data = eg;
 
-                    //Update the TopRight control point for this EllipseGeometry
                     var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
-                    Canvas.SetLeft(eTopRight, (eg.Center.X - diffX) - eTopRight.Width / 2);
-                    Canvas.SetTop(eTopRight, (eg.Center.Y - diffY) - eTopRight.Height / 2);
 
-                   /* var eTopRight = (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopRight");
-                    Canvas.SetLeft(eTopRight, (eg.Center.X - diffY * eg.RadiusY / v1.Length) - eTopRight.Width / 2);
-                    Canvas.SetTop(eTopRight, eg.Center.Y + diffX * eg.RadiusY / v1.Length - eTopRight.Height / 2);*/
+                    var rightPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
+                    var topPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
+                    var bottomPoint = new Point(Canvas.GetLeft(eTopRight), Canvas.GetTop(eTopRight));
+                    var radius = Math.Sqrt(Math.Pow((topPoint.X - bottomPoint.X), 2) + Math.Pow((topPoint.Y - bottomPoint.Y),2)) / 2;
 
+
+                    var eCenter =
+                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
+                    
                     var eTopMiddle = (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_TopMiddle");
-                    Canvas.SetLeft(eTopMiddle, (eg.Center.X - diffY*eg.RadiusY/v1.Length) - eTopMiddle.Width/2);
-                    Canvas.SetTop(eTopMiddle, eg.Center.Y + diffX*eg.RadiusY/v1.Length - eTopMiddle.Height/2);
 
                     var eBottomMiddle =
-                        (Ellipse) LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_BottomMiddle");
-                    Canvas.SetLeft(eBottomMiddle, (eg.Center.X + diffY*eg.RadiusY/v1.Length) - eBottomMiddle.Width/2);
-                    Canvas.SetTop(eBottomMiddle, (eg.Center.Y - diffX*eg.RadiusY/v1.Length) - eBottomMiddle.Height/2);
+                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_BottomMiddle");
 
-                   /* var eCenter =
-                        (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
-                    Canvas.SetLeft(eCenter, (eg.Center.X + diffX) - eCenter.Width / 2);
-                    Canvas.SetTop(eCenter, (eg.Center.Y + diffY) - eCenter.Height / 2);
-                    eg.Center = new Point((eg.Center.X + diffX) - eCenter.Width / 2, (eg.Center.Y + diffY) - eCenter.Height / 2);
-                    updateAll();
-*/
+                    var newCenter = new Point((rightPoint.X + movingEndLocation.X) / 2, (rightPoint.Y + movingEndLocation.Y) / 2);
+                    //set center
+                    Canvas.SetLeft(eCenter, newCenter.X);
+                    Canvas.SetTop(eCenter, newCenter.Y);
+
+                    var newTop = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY, true);
+                    var newBottom = GetPerpendicularPoint(movingEndLocation, newCenter, eg.RadiusY, false);
+                    //set top
+                    Canvas.SetLeft(eTopMiddle, newTop.X);
+                    Canvas.SetTop(eTopMiddle, newTop.Y);
+
+                    //set bottom
+                    Canvas.SetLeft(eBottomMiddle, newBottom.X);
+                    Canvas.SetTop(eBottomMiddle, newBottom.Y);
+
                     break;
                 case "TopMiddle":
                     var v1TopMiddle = new Vector(diffX, diffY);
