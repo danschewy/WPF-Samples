@@ -140,8 +140,10 @@ namespace GeometryDesignerDemo
             {
                 _startPoint = new Point(300 + (25 * _lineCount), 300);
                 _endPoint = new Point(300 + (25 * _lineCount), 200);
+                _centerPoint = new Point(((_startPoint.X + _endPoint.X) / 2), (_startPoint.Y + _endPoint.Y) / 2);
                 ControlPoints.Add(_startPoint);
                 ControlPoints.Add(_endPoint);
+                ControlPoints.Add(_centerPoint);
             }
 
             public override Geometry CreateGeometry()
@@ -154,6 +156,7 @@ namespace GeometryDesignerDemo
 
             private Point _startPoint;
             private Point _endPoint;
+            private Point _centerPoint;
 
             #endregion
         }
@@ -573,7 +576,7 @@ namespace GeometryDesignerDemo
 
         private void UpdateLineGeometryControlPoints(ArrayList controlPoints)
         {
-            if (controlPoints.Count != 2)
+            if (controlPoints.Count != 3)
                 throw new ApplicationException("Error:  incorrect # of control points for LineGeometry");
 
             for (var i = 0; i < controlPoints.Count; i++)
@@ -593,6 +596,13 @@ namespace GeometryDesignerDemo
                                 Ellipse;
                         Canvas.SetLeft(eEndPoint, ((Point) controlPoints[i]).X - eEndPoint.Width/2);
                         Canvas.SetTop(eEndPoint, ((Point) controlPoints[i]).Y - eEndPoint.Height/2);
+                        break;
+                    case 2:
+                        var eCenterPoint =
+                            LogicalTreeHelper.FindLogicalNode(DesignerPane, _currentElement.Name + "_Center") as
+                                Ellipse;
+                        Canvas.SetLeft(eCenterPoint, ((Point)controlPoints[i]).X - eCenterPoint.Width / 2);
+                        Canvas.SetTop(eCenterPoint, ((Point)controlPoints[i]).Y - eCenterPoint.Height / 2);
                         break;
                     default:
                         throw new ApplicationException("Error: incorrect # of control points in LineG");
@@ -683,15 +693,36 @@ namespace GeometryDesignerDemo
             }
             _currentElement = p;
             var lg = p.Data as LineGeometry;
-
+            var center = new Point((lg.StartPoint.X + lg.EndPoint.X) / 2, (lg.StartPoint.Y + lg.EndPoint.Y) / 2);
+            var eCenter =
+                (Ellipse)LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center");
+            var w = eCenter.Width / 2;
+            var h = eCenter.Height / 2;
             switch (controlPointType)
             {
                 case "StartPoint":
                     lg.StartPoint = movingEndLocation;
-
+                    Canvas.SetLeft(eCenter, center.X - w);
+                    Canvas.SetTop(eCenter, center.Y - h);
                     break;
                 case "EndPoint":
                     lg.EndPoint = movingEndLocation;
+                    Canvas.SetLeft(eCenter, center.X - w);
+                    Canvas.SetTop(eCenter, center.Y - h);
+                    break;
+                case "Center":
+                    var diffX = movingEndLocation.X - center.X;
+                    var diffY = movingEndLocation.Y - center.Y;
+                    lg.StartPoint = new Point(lg.StartPoint.X + diffX, lg.StartPoint.Y + diffY);
+                    lg.EndPoint = new Point(lg.EndPoint.X + diffX, lg.EndPoint.Y + diffY);
+                    foreach (var o in DesignerPane.Children)
+                    {
+                        if (o is Ellipse && ((Ellipse)o).Name.Contains(s[0]) && ((Ellipse)o).Name != s[0])
+                        {
+                            Canvas.SetLeft((Ellipse)o, Canvas.GetLeft(((Ellipse)o)) + diffX);
+                            Canvas.SetTop(((Ellipse)o), Canvas.GetTop(((Ellipse)o)) + diffY);
+                        }
+                    }
 
                     break;
                 default:
@@ -986,7 +1017,7 @@ namespace GeometryDesignerDemo
 
         private void AddLineGeometryControlPoints(ArrayList controlPoints)
         {
-            if (controlPoints.Count != 2)
+            if (controlPoints.Count != 3)
                 throw new ApplicationException("Error:  incorrect # of control points for LineGeometry");
 
             for (var i = 0; i < controlPoints.Count; i++)
@@ -996,7 +1027,7 @@ namespace GeometryDesignerDemo
                     Visibility = Visibility.Hidden,
                     Stroke = Brushes.Black,
                     StrokeThickness = 1,
-                    Fill = Brushes.White,
+                    Fill = _lineCount == 0 ? Brushes.White : _lineCount == 1 ? Brushes.LightCoral : Brushes.LightGreen,
                     Opacity = 0.5,
                     Width = 3,
                     Height = 3
@@ -1006,9 +1037,13 @@ namespace GeometryDesignerDemo
                 {
                     e.Name = "Line" + _lineCount + "_StartPoint";
                 }
-                else
+                else if(i == 1)
                 {
                     e.Name = "Line" + _lineCount + "_EndPoint";
+                }
+                else
+                {
+                    e.Name = "Line" + _lineCount + "_Center";
                 }
 
                 e.Width = ControlPointMarkerWidth;
@@ -1040,7 +1075,7 @@ namespace GeometryDesignerDemo
                     Visibility = Visibility.Hidden,
                     Stroke = Brushes.Black,
                     StrokeThickness = 1,
-                    Fill = Brushes.White,
+                    Fill = _elliipseCount == 0 ? Brushes.White : _elliipseCount == 1 ? Brushes.LightCoral : Brushes.LightGreen,
                     Opacity = 0.5,
                     Width = 3,
                     Height = 3
