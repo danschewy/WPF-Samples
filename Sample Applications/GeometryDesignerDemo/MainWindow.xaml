@@ -49,7 +49,7 @@
         </Grid>
 
 
-        <Canvas Width="1000" VerticalAlignment="Stretch" Name="DesignerPane" ClipToBounds="True">
+        <Canvas Width="1000" VerticalAlignment="Stretch" Name="DesignerPane" ClipToBounds="True" MouseMove="Canvas_MouseMove"  MouseUp="Canvas_MouseUp">
             <Canvas Width="1000" Height="1000" Canvas.Left="0" Canvas.Top="0">
                 <Canvas.Background>
                     <VisualBrush x:Name="LogoBrush">
@@ -64,7 +64,7 @@
                     Height="{Binding ElementName=DrawingPane, Path=ActualHeight}">
                 </Rectangle>
 
-                <MediaElement Source="C:\Users\Daniel\Dev\WPF-Samples\Sample Applications\GeometryDesignerDemo\Assets\ultrasound.png" Width="1000"/>
+                <MediaElement Source="./Assets/ultrasound.png" Width="1000"/>
 
                 <Canvas Width="1000" Height="1000" Canvas.Left="0" Canvas.Top="0" Name="DrawingPane" />
 

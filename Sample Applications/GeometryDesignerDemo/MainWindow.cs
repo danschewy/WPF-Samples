@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -54,7 +55,7 @@ namespace GeometryDesignerDemo
         {
             action_Done();
             if (_selectedIndex != null) { ((Path)DrawingPane.Children[(int)_selectedIndex]).Stroke = Brushes.White; _selectedIndex = null; }
-
+            _selectedIndex = null;
             DesignerPane.UpdateLayout();
             RenderTargetBitmap rtb = new RenderTargetBitmap((int)DesignerPane.RenderSize.Width + 200,
                 (int)DesignerPane.RenderSize.Height, 96d, 96d, PixelFormats.Default);
@@ -62,11 +63,18 @@ namespace GeometryDesignerDemo
 
             BitmapEncoder pngEncoder = new PngBitmapEncoder();
             pngEncoder.Frames.Add(BitmapFrame.Create(rtb));
-
-            using (var fs = System.IO.File.OpenWrite("C:/Users/Daniel/Desktop/latest_canvas_capture.png"))
+            try
             {
-                pngEncoder.Save(fs);
+                System.IO.FileInfo file = new System.IO.FileInfo("./Captures/" + DateTime.Now.ToString(("yyyy-MM-ddhh-mm-sstt")) + ".png");
+                file.Directory.Create(); 
+
+                using (var fs = file.OpenWrite())
+                {
+                    pngEncoder.Save(fs);
+                }
+            } catch (Exception exx){
             }
+            
         }
 
         public abstract class GeometryBase
@@ -517,27 +525,76 @@ namespace GeometryDesignerDemo
                             LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center") as Ellipse;
 
                 var egC = new Point(Canvas.GetLeft(eCenter), Canvas.GetTop(eCenter));
-                var jumpPoint = getJumpPoint(egC, eg, 50);
+                // var jumpPoint = getJumpPoint(egC, eg, 50);
 
-                Canvas.SetLeft(el, jumpPoint.X); // todo: jump in the direction away from center
-                Canvas.SetTop(el, jumpPoint.Y);
+                Canvas.SetLeft(el, egC.X); // todo: jump in the direction away from center
+                Canvas.SetTop(el, egC.Y);
 
                _isMoving = true;
             }
         }
 
-        private void Ellipse_MouseLeftButtonUp(object sender, MouseEventArgs e)
+        private void Line_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var el = (Ellipse) sender;
-            el.Cursor = Cursors.Arrow;
+            var el = (Ellipse)sender;
+            _currentEl = el.Name;
+            var s = el.Name.Split('_');
+            if (_selectedIndex == null || ((Path)DrawingPane.Children[(int)_selectedIndex]).Name != s[0])
+            {
+                _isMoving = false;
+                _currentEl = null;
+                return;
+            }
+            el.Cursor = Cursors.Hand;
+            var eg = new Point(Canvas.GetLeft(el), Canvas.GetTop(el));
+            // jump for visibility
+            if (!_isMoving)
+            {
+                var eCenter =
+                            LogicalTreeHelper.FindLogicalNode(DesignerPane, s[0] + "_Center") as Ellipse;
+
+                var egC = new Point(Canvas.GetLeft(eCenter), Canvas.GetTop(eCenter));
+                 var jumpPoint = getJumpPoint(egC, eg, 50);
+
+                Canvas.SetLeft(el, jumpPoint.X); // todo: jump in the direction away from center
+                Canvas.SetTop(el, jumpPoint.Y);
+
+                _isMoving = true;
+            }
+        }
+
+        private void Canvas_MouseUp(object sender, MouseEventArgs e)
+        {
             _isMoving = false;
             _currentEl = null;
         }
 
+        private void Canvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if(_isMoving)
+            {
+                var el =
+                            LogicalTreeHelper.FindLogicalNode(DesignerPane, _currentEl) as Ellipse;
+                if (el == null)
+                {
+                    _isMoving = false;
+                    _currentEl = null;
+                    return;
+                }
+                Point movingEndLocation;
+                movingEndLocation = e.GetPosition(DrawingPane);
+
+                Canvas.SetLeft(el, movingEndLocation.X - el.Width / 2);
+                Canvas.SetTop(el, movingEndLocation.Y - el.Height / 2);
+
+                UpdateGeometries(movingEndLocation, el.Name);
+                _movingPreviousLocation = movingEndLocation;
+            }
+        }
 
         private void Ellipse_MouseMove(object sender, MouseEventArgs e)
         {
-            var el = (Ellipse) sender;
+           /* var el = (Ellipse) sender;
             var s = el.Name.Split('_');
             if (_selectedIndex == null || ((Path)DrawingPane.Children[(int)_selectedIndex]).Name != s[0] || _currentEl != el.Name)
             {
@@ -555,7 +612,7 @@ namespace GeometryDesignerDemo
 
                 UpdateGeometries(movingEndLocation, el.Name);
                 _movingPreviousLocation = movingEndLocation;
-            }
+            }*/
         }
 
         #endregion
@@ -1006,8 +1063,8 @@ namespace GeometryDesignerDemo
         }
 
 
-        private static readonly double ControlPointMarkerWidth = 20;
-        private static readonly double ControlPointMarkerHeight = 20;
+        private static readonly double ControlPointMarkerWidth = 15;
+        private static readonly double ControlPointMarkerHeight = 15;
 
         private void deleteElement(UIElement element)
         {
@@ -1036,9 +1093,7 @@ namespace GeometryDesignerDemo
                     Stroke = Brushes.Black,
                     StrokeThickness = 1,
                     Fill = _lineCount == 0 ? Brushes.White : _lineCount == 1 ? Brushes.PaleVioletRed : Brushes.Orange,
-                    Opacity = 0.5,
-                    Width = 3,
-                    Height = 3
+                    Opacity= 0.5,
                 };
 
                 if (i == 0)
@@ -1061,9 +1116,10 @@ namespace GeometryDesignerDemo
 
 
                 e.MouseLeftButtonDown += Ellipse_MouseLeftButtonDown;
-                e.MouseLeftButtonUp += Ellipse_MouseLeftButtonUp;
-                e.MouseLeave += Ellipse_MouseLeftButtonUp;
-                e.MouseMove += Ellipse_MouseMove;
+                e.MouseLeftButtonDown += Line_MouseLeftButtonDown;
+                // e.MouseLeftButtonUp += Ellipse_MouseLeftButtonUp;
+                // e.MouseLeave += Ellipse_MouseLeftButtonUp;
+                // e.MouseMove += Ellipse_MouseMove;
                 //Add the control point to the Designer Pane
                 //DesignerPane.Children.Add(e);
                 DesignerPane.Children.Insert(DesignerPane.Children.Count - 1, e);
@@ -1085,8 +1141,8 @@ namespace GeometryDesignerDemo
                     StrokeThickness = 1,
                     Fill = _elliipseCount == 0 ? Brushes.White : _elliipseCount == 1 ? Brushes.PaleVioletRed : Brushes.Orange,
                     Opacity = 0.5,
-                    Width = 3,
-                    Height = 3
+                    Width = 10,
+                    Height = 10
                 };
 
                 switch (i)
@@ -1116,8 +1172,8 @@ namespace GeometryDesignerDemo
                 Canvas.SetTop(e, ((Point) controlPoints[i]).Y - e.Height/2);
 
                 e.MouseLeftButtonDown += Ellipse_MouseLeftButtonDown;
-                e.MouseLeftButtonUp += Ellipse_MouseLeftButtonUp;
-                e.MouseMove += Ellipse_MouseMove;
+                // e.MouseLeftButtonUp += Ellipse_MouseLeftButtonUp;
+                // e.MouseMove += Ellipse_MouseMove;
 
                 //Add the control point to the Designer Pane
                 DesignerPane.Children.Insert(DesignerPane.Children.Count - 1, e);
